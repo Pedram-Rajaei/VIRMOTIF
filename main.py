@@ -2,19 +2,17 @@ import os
 from tkinter import *
 from PIL import Image, ImageTk
 import matplotlib.pyplot as plt
-# from mpl_toolkits.mplot3d import axes3d
 import numpy as np
 from matplotlib import cm
-import pandas
+import pandas as pd
 from sklearn.cluster import KMeans
-# from mpl_toolkits.mplot3d import Axes3D
 from sklearn.decomposition import PCA
 from tkinter import filedialog
 from sklearn.preprocessing import StandardScaler
-from functools import cmp_to_key
 from sklearn.cluster import MeanShift, estimate_bandwidth
 from itertools import cycle
 import seaborn as sns
+from mpl_toolkits.mplot3d import Axes3D
 
 LARGE_FONT= ("Verdana", 12)
 
@@ -104,8 +102,6 @@ class Data:
                         self.addSequence(s, index)
                     s = ''
                     index = index + 1
-                    # if index > 5:
-                    #     break
                 else:
                     for l in line:
                         if l in ['A', 'C', 'G', 'T']:
@@ -140,21 +136,11 @@ class Data:
             else:
                 results.append([i, self.getProb(i, code[:-1]) * self.getProb(i, code[1:]) / self.getProb(i, code[1:-1])])
         return results
-data = Data()
-
-class Three:
-    def __init__(self, s, x, y):
-        self.s = s
-        self.x = x
-        self.y = y
-    def __lt__(self, o):
-        if self.x == o.x:
-            return self.y < o.y
-        return self.x < o.x
 
 class App(Tk):
     def __init__(self, *args, **kwargs):
         Tk.__init__(self, *args, **kwargs)
+        self.title("VIRMPTOF")
         container = Frame(self)
         container.pack(side="top", fill="both", expand = True)
         container.grid_rowconfigure(0, weight=1)
@@ -219,6 +205,17 @@ class App(Tk):
         colors = cm.rainbow(values)
         ax1.bar3d(xposM.ravel(), yposM.ravel(), dz*0, dx, dy, dz, color=colors)
         plt.show()
+    def heatmap(self, seqs, subs):
+        a = []
+        for seq in seqs:
+            for sub in subs:
+                a.append([seq, sub, data.values[int(seq)][sub]])
+        if plt != None:
+            plt.close()
+        df = pd.DataFrame(a, columns=['seq', 'sub', 'value'])
+        df = df.pivot(index='sub', columns='seq', values='value')
+        sns.heatmap(df, fmt="g", cmap='viridis')
+        plt.show()
     def meanshift(self, subs, sub_len):
         a = []
         y = []
@@ -231,7 +228,6 @@ class App(Tk):
         ms = MeanShift(bandwidth=bandwidth, bin_seeding=True)
         ms.fit(X)
         labels = ms.labels_
-        cluster_centers = ms.cluster_centers_
         labels_unique = np.unique(labels)
         n_clusters_ = len(labels_unique)
         plt.figure(1)
@@ -239,16 +235,8 @@ class App(Tk):
         colors = cycle('bgrcmykbgrcmykbgrcmykbgrcmyk')
         for k, col in zip(range(n_clusters_), colors):
             my_members = labels == k
-            cluster_center = cluster_centers[k]
             plt.plot(X[my_members, 0], X[my_members, 1], col + '.')
-            # plt.plot(cluster_center[0], cluster_center[1], 'o', markerfacecolor=col,
-            #         markeredgecolor='k', markersize=14)
         plt.title('Estimated number of clusters: %d' % n_clusters_)
-        plotted = []
-        for i in range(X.shape[0]):
-            if y[i] not in plotted:
-                plt.annotate(y[i], (float(X[i, 0]), float(X[i, 1])))
-                plotted.append(y[i])
         plt.show()
     def kmeans(self, subs, sub_len, k):
         a = []
@@ -263,61 +251,19 @@ class App(Tk):
         if plt != None:
             plt.close()
         plt.scatter(X[:, 0], X[:, 1], c = labels)
-        plotted = []
-        for i in range(X.shape[0]):
-            if y[i] not in plotted:
-                plt.annotate(y[i], (float(X[i, 0]), float(X[i, 1])))
-                plotted.append(y[i])
-        plt.show()
-    def heatmap(self, subs, sub_len):
-        a = []
-        y = []
-        for index, code in data.getSubstrings(sub_len, subs):
-            for _, value in data.getValues(code):
-                a.append([index, value])
-                y.append(code)
-        if plt != None:
-            plt.close()
-        ax1 = plt.axes()
-        X = np.array(a)
-        sns.set(color_codes=True)
-        g = sns.heatmap(X, ax=ax1)
         plt.show()
     def clustermap(self, subs, sub_len):
         a = []
-        y = []
-        for index, code in data.getSubstrings(sub_len, subs):
-            for _, value in data.getValues(code):
-                a.append([index, value])
-                y.append(code)
+        for index in range(1, len(data.values)):
+            for sub in data.allCode:
+                if sub in subs or len(sub) == sub_len:
+                    a.append([index, sub, data.values[index][sub]])
         if plt != None:
             plt.close()
-        X = np.array(a)
-        sns.set(color_codes=True)
-        g = sns.clustermap(X, figsize=(5, 5))
+        df = pd.DataFrame(a, columns=['seq', 'sub', 'value'])
+        df = df.pivot(index='sub', columns='seq', values='value')
+        sns.clustermap(df, col_cluster=False, figsize=(5, 5))
         plt.show()
-    def cmpByX(self, x, y):
-        if x[0] != y[0]:
-            return x[0] - y[0]
-        return x[1] - y[1]
-    def findIndex(self, sortedX, x):
-        low, high = 0, len(sortedX)
-        while (low+1) < high:
-            mid = (low + high) // 2
-            if sortedX[mid].x > x:
-                high = mid
-            else:
-                low = mid
-        return low
-    def findNearest(self, sortedX, sortedY, x, y, T, debug=False):
-        low = self.findIndex(sortedX, x)
-        st = self.findIndex(sortedX, x-T)
-        en = self.findIndex(sortedX, x+T)
-        ans = 0
-        for i in range(st, en):
-            if (abs(x - sortedX[i].x) + abs(y - sortedX[i].y)) < T:
-                ans = ans + 1
-        return ans
     def pca(self, subs, sub_len, k):
         a = []
         L = []
@@ -334,45 +280,18 @@ class App(Tk):
         pca = PCA()
         x_new = pca.fit_transform(X)
 
-        def myplot(score,coeff,labels=None):
-            xs = score[:,0]
-            ys = score[:,1]
-            n = coeff.shape[0]
-            scalex = 1.0/(xs.max() - xs.min())
-            scaley = 1.0/(ys.max() - ys.min())
-            kmeans = KMeans(n_clusters=k).fit(score)
-            plt.scatter(xs * scalex, ys * scaley, c=kmeans.labels_)
-            X = np.array([xs * scalex, ys * scaley])
-            xs = xs * scalex
-            ys = ys * scaley
-            oX = []
-            for x, y in zip(xs, ys):
-                oX.append([x, y])
-            X = np.around(X, decimals=3)
-            oX = []
-            for i in range(0, len(X[0, :])):
-                oX.append(Three(L[i], float(X[0, i]), float(X[1, i])))
-            X = np.array([L, X[0, :], X[1, :]]).T
-            mn = 10**10
-            mx = -10**10
-            for x in X:
-                mx = max(mx, float(x[1]))
-                mn = min(mn, float(x[1]))
-            T = .1 * (mx - mn)
-            oX.sort()
-            sortedX = oX
-            for x in sortedX:
-                number = self.findNearest(sortedX, sortedX, float(x.x), float(x.y), T, False)
-                if number < 10:
-                    plt.annotate(x.s, (float(x.x), float(x.y)))
-            plt.xlim(-1,1)
-            plt.ylim(-1,1)
-            plt.xlabel("PC{}".format(1))
-            plt.ylabel("PC{}".format(2))
-            plt.grid()
-
-        #Call the function. Use only the 2 PCs.
-        myplot(x_new[:,0:2],np.transpose(pca.components_[0:2, :]))
+        score = x_new[:, 0:2]
+        xs = score[:,0]
+        ys = score[:,1]
+        scalex = 1.0/(xs.max() - xs.min())
+        scaley = 1.0/(ys.max() - ys.min())
+        kmeans = KMeans(n_clusters=k).fit(score)
+        plt.scatter(xs * scalex, ys * scaley, c=kmeans.labels_)
+        plt.xlim(-1,1)
+        plt.ylim(-1,1)
+        plt.xlabel("PC{}".format(1))
+        plt.ylabel("PC{}".format(2))
+        plt.grid()
         plt.show()
     def load(self):
         file = filedialog.askopenfilename(initialdir = "./", title = "Select file", filetypes = [("all files", "*.*")])
@@ -491,7 +410,7 @@ class PagePlot(Frame):
             subs = [s.strip() for s in subs]
         else:
             subs = []
-        if len(self.e3.get()) > 0:
+        if len(self.e3.get()) > 0 and len(subs) == 0:
             subsE = [int(s.strip()) for s in self.e3.get().split(',')]
             for x in subsE:
                 if x < 1 or x > 5:
@@ -514,20 +433,39 @@ class PagePlot(Frame):
                     return
         self.controller.show(seqs, subs)
     def heatmap(self):
-        subs = []
-        sub_len = 0
+        if len(self.e1.get()) > 0:
+            seqs = self.e1.get().split(',')
+            seqs = [s.strip() for s in seqs]
+        else:
+            self.label1['text'] = 'no sequence number'
+            return
         if len(self.e2.get()) > 0:
             subs = self.e2.get().split(',')
             subs = [s.strip() for s in subs]
-        if len(self.e3.get()) > 0:
-            sub_len = int(self.e3.get())
-        if len(self.e1.get()) > 0:
-            self.label1['text'] = 'bad input: sequence number'
+        else:
+            subs = []
+        if len(self.e3.get()) > 0 and len(subs) == 0:
+            subsE = [int(s.strip()) for s in self.e3.get().split(',')]
+            for x in subsE:
+                if x < 1 or x > 5:
+                    self.label1['text'] = 'too short or too long substring'
+                    return
+            for sub in data.allCode:
+                if len(sub) in subsE:
+                    subs.append(sub)
+        for seq in seqs:
+            if len(data.values) <= int(seq):
+                self.label1['text'] = 'invalid sequence number'
+                return
+        if len(subs) == 0:
+            self.label1['text'] = 'empty substring list'
             return
-        if sub_len == 0 and len(subs) == 0:
-            self.label1['text'] = 'bad input: no substring'
-            return
-        self.controller.heatmap(subs, sub_len)
+        for sub in subs:
+            for x in sub:
+                if x not in ['A', 'C', 'G', 'T']:
+                    self.label1['text'] = 'invalud character in substring'
+                    return
+        self.controller.heatmap(seqs, subs)
     def selectLength(self):
         self.controller.show_frame(SelectLengthPage)
     def update(self):
@@ -722,5 +660,6 @@ class SelectSubstringPage(Frame):
     def update(self):
         self.__init__(self.parent, self.controller)
 
+data = Data()
 app = App()
 app.mainloop()
