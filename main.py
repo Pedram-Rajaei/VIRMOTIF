@@ -66,7 +66,7 @@ class Data:
         sums = [0 for i in range(6)]
         for j in range(1, 6):
             cnt.append({})
-            for i in range(len(s)-j):
+            for i in range(len(s)-j+1):
                 ss = s[i:i+j]
                 if len(ss) != j:
                     print('bad index: ', j)
@@ -106,6 +106,8 @@ class Data:
                     for l in line:
                         if l in ['A', 'C', 'G', 'T']:
                             s = s + l
+            if len(s) > 0:
+                self.addSequence(s, index)
     def getSubstrings(self, sub_len, subs):
         results = []
         for index, code in enumerate(self.allCode):
@@ -140,7 +142,7 @@ class Data:
 class App(Tk):
     def __init__(self, *args, **kwargs):
         Tk.__init__(self, *args, **kwargs)
-        self.title("VIRMPTOF")
+        self.title("VIRMOTIF")
         container = Frame(self)
         container.pack(side="top", fill="both", expand = True)
         container.grid_rowconfigure(0, weight=1)
@@ -176,7 +178,7 @@ class App(Tk):
                     a.append(str(data.probs[int(seq)][sub]))
             result.append(a)
 
-        result = np.array(result, dtype=np.float)
+        result = np.array(result, dtype=float)
 
         fig=plt.figure(figsize=(5, 5), dpi=150)
         ax1=fig.add_subplot(111, projection='3d')
@@ -195,11 +197,11 @@ class App(Tk):
         dy=0.5
         dz=zpos
 
-        ax1.w_xaxis.set_ticks(xpos + dx/2.)
-        ax1.w_xaxis.set_ticklabels(xlabels)
+        ax1.xaxis.set_ticks(xpos + dx/2.)
+        ax1.xaxis.set_ticklabels(xlabels)
 
-        ax1.w_yaxis.set_ticks(ypos + dy/2.)
-        ax1.w_yaxis.set_ticklabels(ylabels)
+        ax1.yaxis.set_ticks(ypos + dy/2.)
+        ax1.yaxis.set_ticklabels(ylabels)
 
         values = np.linspace(0.2, 1., xposM.ravel().shape[0])
         colors = cm.rainbow(values)
